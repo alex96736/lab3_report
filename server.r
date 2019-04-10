@@ -1,32 +1,51 @@
 library('shiny')       # загрузка пакетов
-library('ggplot2')
-library('dplyr')
-library('data.table')
+library('lattice')
+library('plyr')
+
+file.URL <- 'https://raw.githubusercontent.com/alex96736/lab3_report/master/Films-imdb2017.csv'
+download.file(file.URL, destfile = 'Films-imdb2017.csv')
+
+df <- data.table(read.csv('Films-imdb2017.csv', 
+                          stringsAsFactors = F))
 
 shinyServer(function(input, output) {
-  # реагирующий фрейм с данными
-  DT <- reactive({
-    DT <- data.table(read.csv('data_movies_2018.csv', 
-                              stringsAsFactors = F))
-    select(DT[between(Time, input$Time.range[1],
-                      input$Time.range[2]), ],
-           input$Y.var, input$X.var)
-  })
-  # график разброса с линией регрессии
-  output$gplot <- renderPlot({
-    gp <- ggplot(data = DT(), aes_string(x = input$X.var,
-                                         y = input$Y.var))
-    gp <- gp + geom_point() + geom_smooth(method = 'lm')
-    gp
-  })
-  # таблица с описательными статистиками
-  output$XY.summary <- renderPrint({
-    summary(DT())
-  })
-  # отчёт по модели регрессии
-  output$lm.result <- renderPrint({
-    eq <- as.formula(paste(input$Y.var, ' ~ ', input$X.var))
-    mod <- lm(eq, data = DT())
-    summary(mod)
-  })
+    # текст для отображения на главной панели
+    output$gn.text <- renderText({
+        paste0('Вы выбрали жанр: ', 
+               input$gn.to.plot # переменная, связанная со списком возраста
+               )})
+    output$gn.text1 <- renderText({
+      paste0('Вы выбрали оценку с ', 
+             input$Rating.range[1], ' по ', input$Rating.range[2]
+             )
+    })
+    output$gn.text2 <- renderText({
+      paste0('Вы выбрали кол-во голосов с ',
+             input$Votes.range[1], ' по ', input$Votes.range[2]
+             )
+    })
+    output$gn.text3 <- renderText({
+      paste0('Всего фильмов - ', nrow(df)
+      )
+    })
+    # строим гистограммы переменных
+    output$gn.hist <- renderPlot({
+        # сначала фильтруем данные
+        DF <- df[df$Genre == input$gn.to.plot, 1:8]
+        DF <- DF[between(DF$Rating, input$Rating.range[1], input$Rating.range[2])]
+        DF <- DF[between(DF$Votes, input$Votes.range[1], input$Votes.range[2])]
+        
+    output$gn.text4 <- renderText({
+      paste0('Отобранных фильмов - ', nrow(DF)
+             )
+      })
+
+        # затем строим график
+        histogram( ~ Gross_Earning_in_Mil, 
+                   data = DF,
+                   xlab = '',
+                  breaks = seq(min(DF$Gross_Earning_in_Mil), max(DF$Gross_Earning_in_Mil), 
+                               length = input$int.hist + 1)
+                   )
+    })
 })
